@@ -11,6 +11,6 @@ Gem::Specification.new do |gem|
   gem.executables   = gem.files.grep( %r{^bin/} ).map { |f| File.basename(f) }
   gem.test_files    = gem.files.grep( %r{^(test|spec|features)/} )
   gem.name          = 'laclasse-common'
-  gem.require_paths = [  ]
+  gem.require_paths = [ "lib" ]
   gem.version       = 0.1
 end
