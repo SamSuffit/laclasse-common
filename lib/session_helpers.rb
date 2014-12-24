@@ -3,7 +3,7 @@ require 'rack/session/redis'
 module SessionHelpers
 
   def self.configure_rake_session
-    use Rack::Session::Redis,
+    config.middleware.use Rack::Session::Redis,
       key: 'rack.session',
       path: '/',
       expire_after: 3600, # In seconds
