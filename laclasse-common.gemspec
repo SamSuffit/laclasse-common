@@ -13,4 +13,6 @@ Gem::Specification.new do |gem|
   gem.name          = 'laclasse-common'
   gem.require_paths = [ "lib" ]
   gem.version       = 0.1
+
+  gem.add_runtime_dependency 'redis-rack',   '~> 1.5.0'
 end
