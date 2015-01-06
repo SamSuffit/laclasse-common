@@ -11,7 +11,7 @@ Gem::Specification.new do |gem|
   gem.executables   = gem.files.grep( %r{^bin/} ).map { |f| File.basename(f) }
   gem.test_files    = gem.files.grep( %r{^(test|spec|features)/} )
   gem.name          = 'laclasse-common'
-  gem.require_paths = [ "lib" ]
+  gem.require_paths = [ "helpers" ]
   gem.version       = 0.2
 
   gem.add_runtime_dependency 'redis-rack',   '~> 1.5.0'
