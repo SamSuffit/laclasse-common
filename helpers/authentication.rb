@@ -1,58 +1,76 @@
 # -*- encoding: utf-8 -*-
 
-module AuthenticationHelpers
-  
-  def is_logged?
-    env['rack.session'][:authenticated]
-  end
+module Laclasse
+  module Helpers
+    module Authentication
+      def logged?
+        session[:authenticated]
+      end
 
-  #
-  # Log l'utilisateur puis redirige vers 'auth/:provider/callback' qui se charge
-  #   d'initialiser la session et de rediriger vers l'url passée en paramètre
-  #
-  def login!( route )
-    if !route.empty?
-      route += "?" + env['QUERY_STRING'] if !env['QUERY_STRING'].empty?
-      route = URI.escape(env['rack.url_scheme'] + "://" + env['HTTP_HOST'] + route)
-      redirect  APP_PATH + "/auth/cas?url=#{URI.encode( route )}"
+      #
+      # Log l'utilisateur puis redirige vers 'auth/:provider/callback' qui se charge
+      #   d'initialiser la session et de rediriger vers l'url passée en paramètre
+      #
+      def login!( route )
+        unless route.empty?
+          route += "?#{env['QUERY_STRING']}" unless env['QUERY_STRING'].empty?
+          route = URI.escape( "#{env['rack.url_scheme']}://#{env['HTTP_HOST']}#{route}" )
+          redirect "#{APP_PATH}/auth/cas?url=#{URI.encode( route )}"
+        end
+
+        redirect "#{APP_PATH}/auth/cas"
+      end
+
+      #
+      # Délogue l'utilisateur du serveur CAS et de l'application
+      #
+      def logout!( url )
+        url += "?#{env['QUERY_STRING']}" unless env['QUERY_STRING'].empty?
+        session[:authenticated] = false
+        session[:current_user] = nil
+        protocol = CASAUTH::CONFIG[:ssl] ? 'https://' : 'http://'
+
+        redirect "#{protocol}#{CASAUTH::CONFIG[:host]}#{CASAUTH::CONFIG[:logout_url]}?destination=#{URI.encode(url)}"
+      end
+
+      #
+      # Récupération des données de l'annuaire concernant l'utilisateur
+      #
+      def init_current_user( uid )
+        session[:current_user] = { user: session[:user].nil? ? nil : session[:user],
+                                   info: session[:extra].nil? ? nil : session[:extra],
+                                   is_logged: !session[:user].nil? }
+
+        user_annuaire = AnnuaireWrapper::User.get( uid )
+        unless user_annuaire.nil?
+          session[:current_user].merge!( uid: user_annuaire['id_ent'],
+                                         login: user_annuaire['login'],
+                                         sexe: user_annuaire['sexe'],
+                                         nom: user_annuaire['nom'],
+                                         prenom: user_annuaire['prenom'],
+                                         date_naissance: user_annuaire['date_naissance'],
+                                         adresse: user_annuaire['adresse'],
+                                         code_postal: user_annuaire['code_postal'],
+                                         ville: user_annuaire['ville'],
+                                         bloque: user_annuaire['bloque'],
+                                         id_jointure_aaf: user_annuaire['id_jointure_aaf'],
+                                         avatar: ANNUAIRE[:url].gsub( %r{/api}, '/' ) + user_annuaire['avatar']
+                                       )
+        end
+
+        session[:current_user]
+      end
+
+      #
+      # Initialisation de la session après l'authentification
+      #
+      def init_session( env )
+        session[:user] = env['omniauth.auth'].extra.user
+        session[:extra] = env['omniauth.auth'].extra
+        session[:authenticated] = true
+
+        init_current_user( env['omniauth.auth']['extra']['uid'] )
+      end
     end
-    redirect APP_PATH + "/auth/cas"
   end
-
-  #
-  # Délogue l'utilisateur du serveur CAS et de l'application
-  #
-  def logout!( url )
-    url += "?" + env['QUERY_STRING'] if !env['QUERY_STRING'].empty?
-    env['rack.session'][:authenticated] = false
-    env['rack.session'][:current_user] = nil
-    CASAUTH::CONFIG[:ssl] ? protocol = 'https://' : protocol = 'http://'
-    redirect protocol + CASAUTH::CONFIG[:host] + CASAUTH::CONFIG[:logout_url] +'?destination='+URI.encode(url)
-  end
-
-  #
-  # récupération des données envoyée par CAS
-  #
-  def set_current_user( env )
-    env['rack.session'][:current_user] = { user: nil, info: nil }
-    if env['rack.session'][:user]
-      env['rack.session'][:current_user][:user] ||= env['rack.session'][:user]
-      env['rack.session'][:current_user][:info] ||= env['rack.session'][:extra]
-      #env['rack.session'][:current_user][:info][:ENTStructureNomCourant] ||= env['rack.session'][:current_user][:extra][:ENTPersonStructRattachRNE]
-    end
-    env['rack.session'][:current_user]
-  end
-
-  #
-  # Initialisation de la session après l'authentification
-  #
-  def init_session( env )
-    if env['rack.session']
-      env['rack.session'][:user] = env['omniauth.auth'].extra.user
-      env['rack.session'][:extra] = env['omniauth.auth'].extra
-      env['rack.session'][:authenticated] = true
-    end
-    set_current_user env
-  end
-
 end
